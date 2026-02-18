@@ -10,10 +10,10 @@
 
         <!-- Open Graph / Facebook -->
         <meta property="og:type" content="website" />
-        <meta property="og:url" content="https://ramiawar.github.io/gh-release-stats" />
+        <meta property="og:url" content="https://osexpert.github.io/gh-release-stats" />
         <meta property="og:title" content="Github Release Statistics" />
         <meta property="og:description" content="Visualize your Github release total downloads as well as per asset downloads (ex. OS binary)." />
-        <meta property="og:image" content="https://ramiawar.github.io/gh-release-stats/meta.png" />
+        <meta property="og:image" content="https://osexpert.github.io/gh-release-stats/meta.png" />
 
         <!-- Twitter -->
         <meta property="twitter:card" content="summary_large_image" />
@@ -98,6 +98,44 @@
                 trackReleases();
             }
         });
+
+        /**
+         * Resolve the repo string from URL parameters.
+         * Supports the following formats:
+         *   ?repo=owner/repo
+         *   ?user=owner&repo=repo
+         *   ?owner=owner&repo=repo
+         * Returns null if no relevant params are found.
+         */
+        function getRepoFromURL() {
+            const params = new URLSearchParams(window.location.search);
+
+            // ?repo=owner/repo  (already combined)
+            if (params.has('repo') && params.get('repo').includes('/')) {
+                return params.get('repo');
+            }
+
+            // ?user=owner&repo=repo  OR  ?owner=owner&repo=repo
+            const user = params.get('user') || params.get('owner');
+            const repo = params.get('repo');
+            if (user && repo) {
+                return `${user}/${repo}`;
+            }
+
+            return null;
+        }
+
+        /**
+         * Update the browser URL to reflect the current repo without reloading the page.
+         */
+        function setRepoInURL(repo) {
+            const url = new URL(window.location.href);
+            url.searchParams.set('repo', repo);
+            // Remove redundant user/owner params if present
+            url.searchParams.delete('user');
+            url.searchParams.delete('owner');
+            window.history.replaceState({}, '', url.toString());
+        }
 
         async function fetchReleases(repo) {
             const url = `https://api.github.com/repos/${repo}/releases`;
@@ -217,13 +255,14 @@
         }
 
         async function trackReleases() {
-            const repo = document.getElementById('repoInput').value;
+            const repo = document.getElementById('repoInput').value.trim();
             if (!repo) {
                 alert('Please enter a repository in the format username/repository');
                 return;
             }
 
             try {
+                setRepoInURL(repo);
                 const releases = await fetchReleases(repo);
                 releaseData = processReleaseData(releases);
                 updateChart(releaseData);
@@ -270,6 +309,15 @@
                 document.body.removeChild(link);
             }
         }
+
+        // On page load, check for repo in URL and auto-track if found
+        (function init() {
+            const repoFromURL = getRepoFromURL();
+            if (repoFromURL) {
+                document.getElementById('repoInput').value = repoFromURL;
+                trackReleases();
+            }
+        })();
     </script>
 </body>
 </html>
